@@ -1,19 +1,1949 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Leveraging Human Data for Effective Robot Policy Learning</title>
+  <meta name="description" content="What Matters When Cotraining Robot Manipulation Policies on Everyday Human Videos?">
+  <meta name="keywords" content="Robot Learning, Cotraining, Human Videos, Manipulation, TriHands, EgoExo4D">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What Matters When Cotraining Robot Manipulation Policies on Everyday Human Videos?</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <style>
-    h1 {
+    :root {
+      --accent: #1e3a5f;
+      --accent-light: #2b4a6f;
+      --accent-bg: #e8eef5;
+      --accent-glow: rgba(30, 58, 95, 0.10);
+      --bg-primary: #fafbfc;
+      --bg-section-alt: #f3f6f8;
+      --text-primary: #1a2332;
+      --text-secondary: #4a5568;
+      --border-subtle: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- Hero ---- */
+    .hero-section {
+      padding: 3rem 1.5rem 0.5rem;
       text-align: center;
+      background: var(--bg-primary);
+    }
+
+    .paper-title {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      max-width: 750px;
+      margin: 0 auto 1.2rem;
+    }
+
+    .author-list {
+      font-size: 1.05rem;
+      margin-bottom: 1.4rem;
+      color: var(--text-secondary);
+    }
+    .author-list a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .author-list a:hover { text-decoration: underline; }
+
+    .affiliation {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.3rem;
+    }
+    .affiliation-note {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.2rem;
+    }
+
+    .link-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .link-buttons a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: #fff;
+      border: 1px solid var(--border-subtle);
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .link-buttons a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    /* ---- Section styling ---- */
+    .content-section {
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .section-heading {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.8rem;
+    }
+
+    .alt-bg {
+      background: var(--bg-section-alt);
+    }
+
+    /* ---- Teaser / cinematic rollouts ---- */
+    .teaser-container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 1.5rem 2rem;
+    }
+    .teaser-container img {
+      width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .teaser-caption {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 0.8rem;
+      line-height: 1.5;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ---- Comparison grid ---- */
+    .comparison-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-top: 1rem;
+      margin-bottom: 0;
+    }
+    .comparison-header .col-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: center;
+      padding: 0.25rem;
+    }
+    .comparison-header .col-label.cotrain {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-radius: 6px 6px 0 0;
+    }
+    .comparison-header .col-label.robot {
+      background: #fce4ec;
+      color: #c62828;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .comparison-env {
+      border: 1px solid var(--border-subtle);
+      border-radius: 0;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+    }
+    .comparison-env .env-label {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .comparison-env .debug-path {
+      padding: 0.15rem 0.6rem 0.3rem;
+      font-size: 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #999;
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border-subtle);
+      word-break: break-all;
+    }
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      align-items: start;
+    }
+    .comparison-cell {
+      position: relative;
+      overflow: hidden;
+    }
+    .comparison-cell video {
+      width: 100%;
+      display: block;
+    }
+    .playback-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+    }
+    .play-btn {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      border: 1px solid var(--border-subtle);
+      background: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .play-btn:hover {
+      background: #f0f0f0;
+    }
+    .time-scrubber {
+      flex: 1;
+      cursor: pointer;
+    }
+    /* Labeller mode */
+    .labeller-bar {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0.5rem;
+      background: #fffde7;
+      border: 1px solid #f9a825;
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #f57f17;
+    }
+    .label-btns {
+      display: flex;
+      gap: 0.3rem;
+      justify-content: center;
+      padding: 0.3rem 0;
+    }
+    .label-btn {
+      padding: 0.25rem 0.7rem;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+      background: #fff;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .label-btn.success { color: #2e7d32; border-color: #a5d6a7; }
+    .label-btn.success:hover, .label-btn.success.active { background: #e8f5e9; border-color: #2e7d32; }
+    .label-btn.fail { color: #c62828; border-color: #ef9a9a; }
+    .label-btn.fail:hover, .label-btn.fail.active { background: #fce4ec; border-color: #c62828; }
+    .label-btn.unlabel { color: #757575; border-color: #bdbdbd; }
+    .label-btn.unlabel:hover { background: #f5f5f5; }
+    .ep-btn.labelled-success { background: #c8e6c9; border-color: #66bb6a; color: #2e7d32; }
+    .ep-btn.labelled-fail { background: #ffcdd2; border-color: #ef5350; color: #c62828; }
+    .ep-btn.labelled-success.active { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .ep-btn.labelled-fail.active { background: #c62828; color: #fff; border-color: #c62828; }
+    .labeller-io {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+    .labeller-io button {
+      padding: 0.3rem 0.8rem;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+      background: #fff;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .labeller-io button:hover { background: #f0f0f0; }
+    .label-indicator {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-align: center;
+      padding: 0.15rem;
+      border-radius: 0 0 4px 4px;
+    }
+    .label-indicator.success { background: #e8f5e9; color: #2e7d32; }
+    .label-indicator.fail { background: #fce4ec; color: #c62828; }
+    .label-indicator.unlabelled { background: #f5f5f5; color: #bdbdbd; }
+    .ep-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-top: 0.5rem;
+      justify-content: center;
+    }
+    .ep-selector .ep-btn {
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+      background: #fff;
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ep-selector .ep-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .ep-selector .ep-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ---- Video grid (legacy) ---- */
+    .rollout-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .rollout-card {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      border: 1px solid var(--border-subtle);
+    }
+    .rollout-card video, .rollout-card img {
+      width: 100%;
+      display: block;
+    }
+    .rollout-card .card-label {
+      padding: 0.3rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: #fafbfc;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* ---- Abstract ---- */
+    .abstract-text {
+      font-size: 1.02rem;
+      line-height: 1.75;
+      color: var(--text-secondary);
+      text-align: justify;
+    }
+
+    /* ---- Image grid (environments) ---- */
+    .env-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 1rem;
+    }
+    .env-grid img {
+      width: 100%;
+      border-radius: 6px;
+      display: block;
+    }
+    .env-grid-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 1.2rem;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ---- TriHands ---- */
+    .trihands-figure {
+      margin-top: 1rem;
+    }
+    .trihands-figure img {
+      width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    }
+    .trihands-figure + .trihands-figure {
+      margin-top: 1rem;
+    }
+    .figure-caption {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* ---- BibTeX ---- */
+    .bibtex-box {
+      background: #f5f5f5;
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 1.2rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      position: relative;
+    }
+    .bibtex-box .copy-btn {
+      position: absolute;
+      top: 0.8rem;
+      right: 0.8rem;
+      background: #fff;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.15s;
+    }
+    .bibtex-box .copy-btn:hover {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ---- Acknowledgments ---- */
+    .ack-text {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    /* ---- Footer ---- */
+    .site-footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      color: #999;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .site-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* ---- Tab selector for rollouts ---- */
+    .tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .tab-btn {
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      border: 1.5px solid var(--border-subtle);
+      background: #fff;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .paper-title { font-size: 1.6rem; }
+      .section-heading { font-size: 1.35rem; }
+      .env-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Highlight stat boxes */
+    .stat-row {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 1.5rem 0;
+    }
+    .stat-box {
+      background: #fff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 1rem 1.5rem;
+      text-align: center;
+      min-width: 160px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    }
+    .stat-box .stat-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-box .stat-label {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 0.2rem;
+    }
+
+    /* section divider */
+    .section-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ---- Rollout clips (autonomous rollouts) ---- */
+    .rollout-clip {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .rollout-clip:last-child {
+      margin-bottom: 0;
+    }
+    .rollout-views {
+      display: flex;
+    }
+    .rollout-view {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+    .rollout-view + .rollout-view {
+      border-left: 1px solid var(--border-subtle);
+    }
+    .rollout-view img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .rollout-view .view-label {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.55);
+      padding: 0.2rem 0.6rem;
+      border-radius: 5px;
+      pointer-events: none;
+    }
+    .rollout-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      background: #fafbfc;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .rollout-controls .play-btn {
+      background: none;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .rollout-controls .play-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .rollout-controls .frame-slider {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--border-subtle);
+      border-radius: 3px;
+      outline: none;
+    }
+    .rollout-controls .frame-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .rollout-controls .frame-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .rollout-controls .frame-counter {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      min-width: 5em;
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
+    }
+    .rollout-meta {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: #fafbfc;
+      border-top: 1px solid var(--border-subtle);
+    }
+    @media (max-width: 768px) {
+      .rollout-views { flex-direction: column; }
+      .rollout-view + .rollout-view {
+        border-left: none;
+        border-top: 1px solid var(--border-subtle);
+      }
     }
   </style>
 </head>
 <body>
-  <h1 id="page-title"></h1>
-  <script>
-    document.getElementById('page-title').textContent = document.title;
-  </script>
+
+<!-- ============ HERO ============ -->
+<section class="hero-section">
+  <h1 class="paper-title">What Matters When Cotraining Robot Manipulation Policies<br>on Everyday Human Videos?</h1>
+
+  <div class="author-list">
+    <span>Anonymous Authors</span>
+  </div>
+
+  <div class="link-buttons">
+    <a href="#"><i class="fa-solid fa-file-pdf"></i> Paper</a>
+    <a href="#"><i class="ai ai-arxiv"></i> arXiv</a>
+    <a href="#"><i class="fa-solid fa-code"></i> Code</a>
+    <a href="#"><i class="fa-solid fa-database"></i> Dataset</a>
+  </div>
+</section>
+
+<!-- ============ VIDEO ============ -->
+<section>
+  <div class="teaser-container">
+    <video autoplay muted loop playsinline controls style="width:100%; border-radius:10px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+      <source src="media/videos/rss2026_imovie_30fps.MOV" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+    <p class="teaser-caption">
+      We compare our policy to a robot-data-only baseline and show zero-shot generalization to unseen backgrounds, objects, and distractors.
+    </p>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ TRIHANDS ============ -->
+<section class="alt-bg">
+  <div class="content-section" style="max-width: 1200px;">
+    <h2 class="section-heading">TriHands Visualization</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 0.6rem;">
+      We build <strong>TriHands</strong>, a dataset of everyday cooking videos with accurate 3D hands produced by a multi-view triangulation pipeline.
+    </p>
+    <p style="color: var(--text-secondary); margin-bottom: 0.6rem;">
+      Below we visualize 2D projections of our triangulated hand keypoints from multiple synchronized camera views.
+    </p>
+    <p style="color: var(--text-secondary); margin-bottom: 1.2rem;">
+      <em>Drag the slider to scrub through time. Exo views: drag to pan, scroll to zoom, double-click to reset.</em>
+    </p>
+
+    <!-- Hand mode tabs + randomize -->
+    <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 1.2rem; flex-wrap: wrap;">
+      <button class="tab-btn active" onclick="switchTrihandsTab('both', this)">Both Hands</button>
+      <button class="tab-btn" onclick="switchTrihandsTab('right', this)">Right Hand</button>
+      <button class="tab-btn" onclick="switchTrihandsTab('left', this)">Left Hand</button>
+      <button class="tab-btn" id="trihands-randomize-btn" onclick="randomizeClip()" style="margin-left: auto;">
+        <i class="fa-solid fa-shuffle" style="margin-right: 0.3rem;"></i>Randomize
+      </button>
+    </div>
+
+    <!-- Single clip display -->
+    <div id="trihands-display"></div>
+  </div>
+</section>
+
+<style>
+  .trihands-clip {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+  /* Ego left + exo 2x2 right layout */
+  .clip-layout {
+    display: flex;
+    align-items: flex-start;
+  }
+  .clip-ego {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+  .clip-ego img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .clip-exo-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    min-width: 0;
+    border-left: 1px solid var(--border-subtle);
+  }
+  .clip-exo-cell {
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    cursor: grab;
+    aspect-ratio: 1 / 1;
+  }
+  .clip-exo-cell:active { cursor: grabbing; }
+  .clip-exo-cell img {
+    display: block;
+    width: 100%;
+    height: 142.86%;
+    margin-top: -21.43%;
+    object-fit: cover;
+    object-position: 50% 50%;
+    pointer-events: none;
+    user-select: none;
+  }
+  /* subtle grid lines between exo cells */
+  .clip-exo-cell:nth-child(1) { border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+  .clip-exo-cell:nth-child(2) { border-bottom: 1px solid var(--border-subtle); }
+  .clip-exo-cell:nth-child(3) { border-right: 1px solid var(--border-subtle); }
+  .clip-view-label {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .clip-ego .clip-view-label {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+  }
+  .clip-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    background: #fafbfc;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .clip-controls .play-btn {
+    background: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .clip-controls .play-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .clip-controls .frame-slider {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border-subtle);
+    border-radius: 3px;
+    outline: none;
+  }
+  .clip-controls .frame-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .clip-controls .frame-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .clip-controls .frame-counter {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 5em;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+  @media (max-width: 600px) {
+    .clip-layout { flex-direction: column; }
+    .clip-ego { flex: none; }
+    .clip-exo-grid { border-left: none; border-top: 1px solid var(--border-subtle); }
+  }
+</style>
+
+<script>
+(function() {
+  const trihandsClips = {
+    both: [
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/10_12393", numFrames: 60, exoCams: ["cam01", "cam02", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/11_305", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/12_1249", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/13_348", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/14_3147", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/15_7429", numFrames: 60, exoCams: ["cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/16_1708", numFrames: 60, exoCams: ["cam01", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/19_2804", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/1_185", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/2_1388", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/3_1682", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/4_6479", numFrames: 60, exoCams: ["cam01", "cam02", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/5_4633", numFrames: 60, exoCams: ["cam01", "cam02", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/6_23393", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/7_9182", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/both/8_3774", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] }
+    ],
+    right: [
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/0_1765", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/10_1229", numFrames: 60, exoCams: ["cam01", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/11_17144", numFrames: 60, exoCams: ["cam01", "cam03", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/12_252", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/13_713", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/14_2447", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/15_5293", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/16_12984", numFrames: 60, exoCams: ["cam01", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/17_7497", numFrames: 60, exoCams: ["cam01", "cam02", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/18_12991", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/19_2072", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/1_889", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/2_356", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/3_4078", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/4_2183", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/5_1453", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/6_917", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/7_6312", numFrames: 60, exoCams: ["cam01", "cam02", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/8_704", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/right/9_11039", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] }
+    ],
+    left: [
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/0_2843", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/10_4785", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/11_4966", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/12_10674", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/13_2075", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/14_11702", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/15_9943", numFrames: 60, exoCams: ["cam01", "cam02", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/16_1554", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/18_2561", numFrames: 60, exoCams: ["cam01", "cam02", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/19_11659", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/1_4611", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/2_12730", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/3_1335", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/4_8157", numFrames: 60, exoCams: ["cam01", "cam03", "cam04", "cam05"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/5_716", numFrames: 60, exoCams: ["cam01", "cam02", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/6_7994", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/7_22875", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/8_4841", numFrames: 60, exoCams: ["cam01", "cam02", "cam03", "cam04"] },
+      { base: "https://people.csail.mit.edu/rli14/trihands_compressed/left/9_698", numFrames: 60, exoCams: ["cam01", "cam03", "cam04"] }
+    ]
+  };
+
+  // Shuffle clip arrays so each page load shows a different order
+  function shuffleArray(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+  }
+  Object.keys(trihandsClips).forEach(function(k) { shuffleArray(trihandsClips[k]); });
+
+  let currentMode = 'both';
+  let currentClipIdx = 0;
+  let currentAnimId = null;
+
+  function frameSrc(base, cam, idx) {
+    return cam === 'ego'
+      ? base + '/horizon' + idx + '.jpg'
+      : base + '/' + cam + '/horizon' + idx + '.jpg';
+  }
+
+  function preloadAllFrames(clip) {
+    const cams = ['ego'].concat(clip.exoCams);
+    for (let i = 0; i < clip.numFrames; i++) {
+      cams.forEach(cam => { new Image().src = frameSrc(clip.base, cam, i); });
+    }
+  }
+
+  function showClip(clip) {
+    // stop any running animation
+    if (currentAnimId) { cancelAnimationFrame(currentAnimId); currentAnimId = null; }
+
+    const display = document.getElementById('trihands-display');
+    display.innerHTML = '';
+
+    const el = document.createElement('div');
+    el.className = 'trihands-clip';
+
+    const cams = ['ego'].concat(clip.exoCams);
+    const imgs = [];
+    let currentFrame = 0;
+
+    // ego left + exo 2x2 right
+    const layout = document.createElement('div');
+    layout.className = 'clip-layout';
+
+    // ego panel
+    const egoPanel = document.createElement('div');
+    egoPanel.className = 'clip-ego';
+    const egoImg = document.createElement('img');
+    egoImg.src = frameSrc(clip.base, 'ego', 0);
+    egoImg.draggable = false;
+    egoPanel.appendChild(egoImg);
+    imgs.push(egoImg);
+    const egoLabel = document.createElement('div');
+    egoLabel.className = 'clip-view-label';
+    egoLabel.textContent = 'Ego (Aria)';
+    egoPanel.appendChild(egoLabel);
+    layout.appendChild(egoPanel);
+
+    // exo 2x2 grid (up to 4 cams; fill empty cells if fewer)
+    const exoGrid = document.createElement('div');
+    exoGrid.className = 'clip-exo-grid';
+    for (let i = 0; i < 4; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'clip-exo-cell';
+      if (i < clip.exoCams.length) {
+        const cam = clip.exoCams[i];
+        const img = document.createElement('img');
+        img.src = frameSrc(clip.base, cam, 0);
+        img.draggable = false;
+        cell.appendChild(img);
+        imgs.push(img);
+        const label = document.createElement('div');
+        label.className = 'clip-view-label';
+        label.textContent = 'Exo ' + (i + 1);
+        cell.appendChild(label);
+
+        // Drag-to-pan + scroll-to-zoom on exo views.
+        // Horizontal: object-position X (0%–100%) pans rendered image within element.
+        // Vertical: margin-top pans the oversized element within cell.
+        // Zoom: adjusts height% (142.86% = default 15% crop, 100% = no crop, higher = more zoom).
+        (function(cell, img) {
+          let zoom = 142.86;   // height percentage: 100=fit, 142.86=default crop, higher=more zoom
+          let opX = 50;        // object-position X: 0=left, 100=right
+          let mtY;             // margin-top %: computed from zoom
+          let dragging = false;
+          let startX, startY, startOpX, startMtY;
+
+          // Compute vertical margin range from zoom level.
+          // At zoom%, the overflow is (zoom - 100)%. Center = -(zoom-100)/2.
+          function mtRange() {
+            var overflow = zoom - 100;
+            return { min: -overflow, max: 0, center: -overflow / 2 };
+          }
+
+          // Initialize mtY to center
+          mtY = mtRange().center;
+
+          function applyPan() {
+            img.style.height = zoom + '%';
+            img.style.objectPosition = opX + '% 50%';
+            img.style.marginTop = mtY + '%';
+          }
+
+          function clampMtY() {
+            var r = mtRange();
+            mtY = Math.max(r.min, Math.min(r.max, mtY));
+          }
+
+          cell.addEventListener('pointerdown', function(e) {
+            dragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startOpX = opX;
+            startMtY = mtY;
+            cell.setPointerCapture(e.pointerId);
+            e.preventDefault();
+          });
+
+          cell.addEventListener('pointermove', function(e) {
+            if (!dragging) return;
+            var rect = cell.getBoundingClientRect();
+            var panSpeed = 0.4;  // slower pan: 40% of raw drag distance
+            // Horizontal: map drag pixels to 0–100% object-position range
+            var dx = -(e.clientX - startX) / rect.width * 100 * panSpeed;
+            opX = Math.max(0, Math.min(100, startOpX + dx));
+            // Vertical: map drag pixels to margin-top range
+            var overflow = zoom - 100;
+            var dy = (e.clientY - startY) / rect.height * overflow * panSpeed;
+            mtY = Math.max(-overflow, Math.min(0, startMtY + dy));
+            applyPan();
+          });
+
+          cell.addEventListener('pointerup', function() { dragging = false; });
+          cell.addEventListener('pointercancel', function() { dragging = false; });
+
+          // Scroll-to-zoom: zoom toward cursor position
+          cell.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            var rect = cell.getBoundingClientRect();
+            // Cursor position as fraction (0–1) within cell
+            var cursorX = (e.clientX - rect.left) / rect.width;
+            var cursorY = (e.clientY - rect.top) / rect.height;
+
+            var oldZoom = zoom;
+            // Zoom step: ~10% per scroll tick
+            var delta = e.deltaY > 0 ? -10 : 10;
+            zoom = Math.max(100, Math.min(400, zoom + delta));
+
+            // Adjust pan so the pixel under cursor stays fixed.
+            // Horizontal: interpolate opX toward cursor-relative position
+            var zoomRatio = zoom / oldZoom;
+            // Shift opX to keep cursor-point stationary
+            opX = opX + (cursorX - 0.5) * (1 - zoomRatio) * 50;
+            opX = Math.max(0, Math.min(100, opX));
+
+            // Vertical: adjust mtY to keep cursor-point stationary
+            var oldOverflow = oldZoom - 100;
+            var newOverflow = zoom - 100;
+            if (oldOverflow > 0) {
+              // What fraction of the overflow was visible at cursor?
+              var visY = (-mtY + cursorY * 100) / oldZoom;
+              mtY = -(visY * zoom - cursorY * 100);
+            } else {
+              mtY = -newOverflow / 2;
+            }
+            clampMtY();
+            applyPan();
+          }, { passive: false });
+
+          cell.addEventListener('dblclick', function() {
+            zoom = 142.86; opX = 50; mtY = mtRange().center;
+            applyPan();
+          });
+        })(cell, img);
+      }
+      exoGrid.appendChild(cell);
+    }
+    layout.appendChild(exoGrid);
+    el.appendChild(layout);
+
+    // controls
+    const controls = document.createElement('div');
+    controls.className = 'clip-controls';
+
+    const playBtn = document.createElement('button');
+    playBtn.className = 'play-btn';
+    playBtn.innerHTML = '&#9654;';
+    controls.appendChild(playBtn);
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'frame-slider';
+    slider.min = 0;
+    slider.max = clip.numFrames - 1;
+    slider.value = 0;
+    controls.appendChild(slider);
+
+    const counter = document.createElement('span');
+    counter.className = 'frame-counter';
+    counter.textContent = '1 / ' + clip.numFrames;
+    controls.appendChild(counter);
+
+    el.appendChild(controls);
+    display.appendChild(el);
+
+    // map imgs array: [egoImg, exo0Img, exo1Img, ...]
+    // corresponding cam keys: ['ego', exoCams[0], exoCams[1], ...]
+    const imgCamKeys = ['ego'].concat(clip.exoCams);
+
+    // frame update — uses rAF to batch DOM writes
+    let pendingFrame = null;
+    function setFrame(idx) {
+      currentFrame = idx;
+      if (pendingFrame !== null) return; // already scheduled
+      pendingFrame = requestAnimationFrame(() => {
+        const f = currentFrame;
+        for (let i = 0; i < imgs.length; i++) {
+          imgs[i].src = frameSrc(clip.base, imgCamKeys[i], f);
+        }
+        slider.value = f;
+        counter.textContent = (f + 1) + ' / ' + clip.numFrames;
+        pendingFrame = null;
+      });
+    }
+
+    // slider: listen to both input and pointermove for maximum responsiveness
+    slider.addEventListener('input', function() {
+      setFrame(parseInt(this.value));
+    });
+
+    // pointer-based scrubbing for when 'input' events lag
+    let dragging = false;
+    slider.addEventListener('pointerdown', function(e) {
+      dragging = true;
+      slider.setPointerCapture(e.pointerId);
+    });
+    slider.addEventListener('pointermove', function() {
+      if (dragging) setFrame(parseInt(this.value));
+    });
+    slider.addEventListener('pointerup', function() { dragging = false; });
+    slider.addEventListener('pointercancel', function() { dragging = false; });
+
+    // play/pause
+    let playing = false;
+    let lastTime = 0;
+    const FPS = 15;
+    const interval = 1000 / FPS;
+
+    function animate(ts) {
+      if (ts - lastTime >= interval) {
+        lastTime = ts;
+        let next = currentFrame + 1;
+        if (next >= clip.numFrames) next = 0;
+        setFrame(next);
+      }
+      currentAnimId = requestAnimationFrame(animate);
+    }
+
+    playBtn.addEventListener('click', function() {
+      if (playing) {
+        if (currentAnimId) { cancelAnimationFrame(currentAnimId); currentAnimId = null; }
+        playing = false;
+        playBtn.innerHTML = '&#9654;';
+      } else {
+        playing = true;
+        lastTime = 0;
+        currentAnimId = requestAnimationFrame(animate);
+        playBtn.innerHTML = '&#9208;';
+      }
+    });
+
+    // preload all frames immediately
+    preloadAllFrames(clip);
+  }
+
+  function renderCurrentClip() {
+    const clips = trihandsClips[currentMode];
+    if (!clips || clips.length === 0) return;
+    currentClipIdx = Math.min(currentClipIdx, clips.length - 1);
+    showClip(clips[currentClipIdx]);
+  }
+
+  window.switchTrihandsTab = function(mode, el) {
+    document.querySelectorAll('.trihands-tabs .tab-btn, [onclick^="switchTrihandsTab"]').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    currentMode = mode;
+    currentClipIdx = 0;
+    renderCurrentClip();
+  };
+
+  window.randomizeClip = function() {
+    const clips = trihandsClips[currentMode];
+    if (!clips || clips.length <= 1) return;
+    let next;
+    do { next = Math.floor(Math.random() * clips.length); } while (next === currentClipIdx);
+    currentClipIdx = next;
+    renderCurrentClip();
+  };
+
+  // Preload all clips across all modes in the background.
+  // Uses batched loading to avoid saturating the network.
+  function preloadAllGallery() {
+    var urls = [];
+    ['both', 'right', 'left'].forEach(function(mode) {
+      (trihandsClips[mode] || []).forEach(function(clip) {
+        var cams = ['ego'].concat(clip.exoCams);
+        for (var i = 0; i < clip.numFrames; i++) {
+          cams.forEach(function(cam) { urls.push(frameSrc(clip.base, cam, i)); });
+        }
+      });
+    });
+    var idx = 0;
+    var BATCH = 6; // match typical browser connection limit
+    function loadBatch() {
+      if (idx >= urls.length) return;
+      var end = Math.min(idx + BATCH, urls.length);
+      var pending = 0;
+      for (var j = idx; j < end; j++) {
+        pending++;
+        var img = new Image();
+        img.onload = img.onerror = function() { if (--pending === 0) loadBatch(); };
+        img.src = urls[j];
+      }
+      idx = end;
+    }
+    loadBatch();
+  }
+
+  // init
+  renderCurrentClip();
+  // start background preload after first paint
+  setTimeout(preloadAllGallery, 500);
+})();
+</script>
+
+<div class="section-divider"></div>
+
+<!-- ============ AUTONOMOUS ROLLOUTS ============ -->
+<section>
+  <div class="content-section" style="max-width: 640px;">
+    <h2 class="section-heading">Autonomous Rollouts</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+      Side-by-side comparison of zero-shot policy rollouts on unseen test environments.
+      <br><strong>Human Cotraining</strong> (ours) consistently outperforms the <strong>Robot Only</strong> baseline.
+    </p>
+
+    <div class="tab-row" id="rollout-tabs">
+      <button class="tab-btn active" onclick="showTask('stack', this)">Stack</button>
+      <button class="tab-btn" onclick="showTask('pick', this)">Pick</button>
+      <button class="tab-btn" onclick="showTask('pull', this)">Pull</button>
+      <button class="tab-btn" onclick="showTask('reorient', this)">Reorient</button>
+      <button class="tab-btn" onclick="showTask('book', this)">Book</button>
+      <button class="tab-btn" onclick="showTask('pour', this)">Pour</button>
+    </div>
+
+    <div class="comparison-header" id="comparison-header">
+      <div class="col-label cotrain">Human Cotraining (Ours)</div>
+      <div class="col-label robot">Robot Only</div>
+    </div>
+
+    <div id="rollout-display">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="ep-selector" id="ep-selector">
+      <!-- Populated by JS -->
+    </div>
+
+    <div id="labeller-io-container" style="display:none;">
+      <div class="labeller-io">
+        <button onclick="downloadLabels()">Save Labels JSON</button>
+        <button onclick="document.getElementById('label-upload').click()">Load Labels JSON</button>
+        <input type="file" id="label-upload" accept=".json" style="display:none" onchange="uploadLabels(event)">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ SYSTEM DIAGRAM ============ -->
+<section>
+  <div class="content-section">
+    <h2 class="section-heading">System Diagram</h2>
+    <img src="media/images/teaser3_website.png" alt="System diagram: Large-scale human data, action alignment, and policy cotraining for robot manipulation" style="width:100%; border-radius:10px;">
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ ABSTRACT ============ -->
+<section class="content-section">
+  <h2 class="section-heading">Abstract</h2>
+  <p class="abstract-text">
+    Existing human video datasets used for cotraining robot manipulation policies largely consist of curated demonstrations collected by roboticists. The human motions in these videos are carefully orchestrated to look like robot motions and the 3D hand poses acquired are highly accurate due to usage of specialized capture devices. A more plentiful and diverse source of data is everyday videos on the Internet of humans accomplishing daily tasks. To study cotraining in this setting, we curate a large-scale dataset of 532 videos of natural human activity (cooking) with over 28 hours of high-quality hand labels. We find that hand quality affects transfer performance, but even with high-quality hands, the inherent motion gap can hinder transfer if the policy network cannot properly specialize to each embodiment. We propose a cotraining recipe based on a token-level fusion architecture, embodiment-specific action encoders and decoders, and a loss that upweights robot data. Our recipe allows for consistently improved scaling when cotraining on human data, with a mean success rate improvement of +29.7% in the low-robot-data regime across six manipulation tasks.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="stat-number">532</div>
+      <div class="stat-label">Human Videos</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">28h+</div>
+      <div class="stat-label">Hand Label Data</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">+29.7%</div>
+      <div class="stat-label">Success Rate Gain</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">6</div>
+      <div class="stat-label">Manipulation Tasks</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ EGOVIEW / WRIST VIEW ============ -->
+<section>
+  <div class="content-section">
+    <h2 class="section-heading">Training &amp; Test Environments</h2>
+<!--     <p style="color: var(--text-secondary); margin-bottom: 1.2rem;">
+      Our robot system uses an egocentric (overhead) camera whose placement is derived from the human camera's median wrist depth,
+      enabling pixel-space scale alignment between human and robot images. Below are the ego-view training and testing environments
+      for all six tasks. Each environment features a unique <strong>object</strong> and <strong>background (tablecloth)</strong>.
+      Test environments contain objects and backgrounds <strong>never seen during training</strong>.
+    </p> -->
+
+    <div class="tab-row" id="env-tabs">
+      <button class="tab-btn active" onclick="showEnv('pick', this)">Pick</button>
+      <button class="tab-btn" onclick="showEnv('stack', this)">Stack</button>
+      <button class="tab-btn" onclick="showEnv('pull', this)">Pull</button>
+      <button class="tab-btn" onclick="showEnv('reorient', this)">Reorient</button>
+      <button class="tab-btn" onclick="showEnv('book', this)">Book</button>
+      <button class="tab-btn" onclick="showEnv('pour', this)">Pour</button>
+    </div>
+
+    <p class="env-grid-label">Training Environments (10 scenes)</p>
+    <div class="env-grid" id="train-grid" style="grid-template-columns: repeat(5, 1fr);"></div>
+
+    <p class="env-grid-label">Test Environments (unseen objects &amp; backgrounds)</p>
+    <div class="env-grid" id="test-grid" style="grid-template-columns: repeat(5, 1fr);"></div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ ACKNOWLEDGMENTS ============ -->
+<section class="content-section">
+  <h2 class="section-heading">Acknowledgments</h2>
+  <p class="ack-text">
+    We thank the EgoExo4D team for providing the original dataset and calibration data.
+    This work was supported in part by [funding sources to be added].
+  </p>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ BIBTEX ============ -->
+<section class="content-section">
+  <h2 class="section-heading">BibTeX</h2>
+  <div class="bibtex-box">
+    <button class="copy-btn" onclick="copyBibtex()">Copy</button>
+<pre id="bibtex-content" style="margin:0; white-space: pre-wrap;">@inproceedings{anonymous2026cotraining,
+  title     = {What Matters When Cotraining Robot Manipulation Policies on Everyday Human Videos?},
+  author    = {Anonymous},
+  booktitle = {TBD},
+  year      = {2026}
+}</pre>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  Website template inspired by <a href="https://nerfies.github.io" target="_blank">Nerfies</a> and
+  <a href="https://data-scaling-laws.github.io" target="_blank">Data Scaling Laws</a>.
+</footer>
+
+<script>
+// ---- Task rollout image data ----
+const testImages = {
+  pick: [
+    { src: 'media/images/test/pick/rainbowspatula_redcheckered.png', label: 'Rainbow Spatula / Red Checkered' },
+    { src: 'media/images/test/pick/spiralspatula_redcheckered.png', label: 'Spiral Spatula / Red Checkered' },
+    { src: 'media/images/test/pick/rainbowspatula_blueleaves.png', label: 'Rainbow Spatula / Blue Leaves' },
+    { src: 'media/images/test/pick/spiralspatula_blueleaves.png', label: 'Spiral Spatula / Blue Leaves' },
+  ],
+  stack: [
+    { src: 'media/images/test/stack/yelloworange_redcheckered.png', label: 'Yellow-Orange / Red Checkered' },
+    { src: 'media/images/test/stack/navygreen_redcheckered.png', label: 'Navy-Green / Red Checkered' },
+    { src: 'media/images/test/stack/yelloworange_blueleaves.png', label: 'Yellow-Orange / Blue Leaves' },
+    { src: 'media/images/test/stack/navygreen_blueleaves.png', label: 'Navy-Green / Blue Leaves' },
+  ],
+  pull: [
+    { src: 'media/images/test/pull/redmug_redcheckered.png', label: 'Red Mug / Red Checkered' },
+    { src: 'media/images/test/pull/whitemug_redcheckered.png', label: 'White Mug / Red Checkered' },
+    { src: 'media/images/test/pull/redmug_pinkleaves.png', label: 'Red Mug / Pink Leaves' },
+    { src: 'media/images/test/pull/whitemug_pinkleaves.png', label: 'White Mug / Pink Leaves' },
+  ],
+  reorient: [
+    { src: 'media/images/test/reorient/whitemug_redcheckered.png', label: 'White Mug / Red Checkered' },
+    { src: 'media/images/test/reorient/pinkmug_redcheckered.png', label: 'Pink Mug / Red Checkered' },
+    { src: 'media/images/test/reorient/whitemug_blueleaves.png', label: 'White Mug / Blue Leaves' },
+    { src: 'media/images/test/reorient/redmug_blueleaves.png', label: 'Red Mug / Blue Leaves' },
+  ],
+  book: [
+    { src: 'media/images/test/book/deepwork_redcheckered.png', label: 'Deep Work / Red Checkered' },
+    { src: 'media/images/test/book/nietzche_redcheckered.png', label: 'Nietzsche / Red Checkered' },
+    { src: 'media/images/test/book/deepwork_pinkleaves.png', label: 'Deep Work / Pink Leaves' },
+    { src: 'media/images/test/book/nietzche_pinkleaves.png', label: 'Nietzsche / Pink Leaves' },
+  ],
+  pour: [
+    { src: 'media/images/test/pour/pinkpurple_redcheckered.png', label: 'Pink-Purple / Red Checkered' },
+    { src: 'media/images/test/pour/blueyellow_redcheckered.png', label: 'Blue-Yellow / Red Checkered' },
+    { src: 'media/images/test/pour/pinkpurple_pinkleaves.png', label: 'Pink-Purple / Pink Leaves' },
+    { src: 'media/images/test/pour/blueyellow_pinkleaves.png', label: 'Blue-Yellow / Pink Leaves' },
+  ],
+};
+
+// ---- Train environment image data ----
+const trainImages1 = {
+  pick: [
+    'media/images/train/pick/brown_blank.png',
+    'media/images/train/pick/metalwood_white.png',
+    'media/images/train/pick/bluespiral_red.png',
+    'media/images/train/pick/red_pinkleaves.png',
+    'media/images/train/pick/aqua_aqua.png',
+  ],
+  stack: [
+    'media/images/train/stack/yellowpurple_blank.png',
+    'media/images/train/stack/yellowblue_white.png',
+    'media/images/train/stack/purpletaupe_red.png',
+    'media/images/train/stack/whitepurple_pinkleaves.png',
+    'media/images/train/stack/taupepink_aqua.png',
+  ],
+  pull: [
+    'media/images/train/pull/whitebluecompass_blank.png',
+    'media/images/train/pull/navy_white.png',
+    'media/images/train/pull/aquadino_red.png',
+    'media/images/train/pull/smallwhiteblue_blueleaves.png',
+    'media/images/train/pull/black_aqua.png',
+  ],
+  reorient: [
+    'media/images/train/reorient/whitebluecompass_blank.png',
+    'media/images/train/reorient/navy_white.png',
+    'media/images/train/reorient/aquadino_red.png',
+    'media/images/train/reorient/smallwhiteblue_pinkleaves.png',
+    'media/images/train/reorient/black_aqua.png',
+  ],
+  book: [
+    'media/images/train/book/white_blank.png',
+    'media/images/train/book/navy_white.png',
+    'media/images/train/book/mindfulness_red.png',
+    'media/images/train/book/meditations_blueleaves.png',
+    'media/images/train/book/aqua_aqua.png',
+  ],
+  pour: [
+    'media/images/train/pour/bluenavy_blank.png',
+    'media/images/train/pour/bluepurple_white.png',
+    'media/images/train/pour/taupewhite_red.png',
+    'media/images/train/pour/taupeorange_blueleaves.png',
+    'media/images/train/pour/pinkyellow_aqua.png',
+  ],
+};
+
+const trainImages2 = {
+  pick: [
+    'media/images/train/pick/pick_greydesign.png',
+    'media/images/train/pick/pick_orangeleaves.png',
+    'media/images/train/pick/pick_autumnleaves.png',
+    'media/images/train/pick/pick_whiteplants.png',
+    'media/images/train/pick/pick_creammosaic.png',
+  ],
+  stack: [
+    'media/images/train/stack/stack_greydesign.png',
+    'media/images/train/stack/stack_orangeleaves.png',
+    'media/images/train/stack/stack_autumnleaves.png',
+    'media/images/train/stack/stack_whiteplants.png',
+    'media/images/train/stack/stack_creammosaic.png',
+  ],
+  pull: [
+    'media/images/train/pull/pull_greydesign.png',
+    'media/images/train/pull/pull_orangeleaves.png',
+    'media/images/train/pull/pull_autumnleaves.png',
+    'media/images/train/pull/pull_whiteplants.png',
+    'media/images/train/pull/pull_creammosaic.png',
+  ],
+  reorient: [
+    'media/images/train/reorient/reorient_greydesign.png',
+    'media/images/train/reorient/reorient_orangeleaves.png',
+    'media/images/train/reorient/reorient_autumnleaves.png',
+    'media/images/train/reorient/reorient_whiteplants.png',
+    'media/images/train/reorient/reorient_creammosaic.png',
+  ],
+  book: [
+    'media/images/train/book/book_greydesign.png',
+    'media/images/train/book/book_orangeleaves.png',
+    'media/images/train/book/book_autumnleaves.png',
+    'media/images/train/book/book_whiteplants.png',
+    'media/images/train/book/book_creammosaic.png',
+  ],
+  pour: [
+    'media/images/train/pour/pour_greydesign.png',
+    'media/images/train/pour/pour_orangeleaves.png',
+    'media/images/train/pour/pour_autumnleaves.png',
+    'media/images/train/pour/pour_whiteplants.png',
+    'media/images/train/pour/pour_creammosaic.png',
+  ],
+};
+
+// ---- Labeller mode ----
+const urlParams = new URLSearchParams(window.location.search);
+const isLabellerMode = urlParams.get('mode') === 'labeller';
+const isLabeller = isLabellerMode;
+const LABELS_KEY = 'rollout-labels';
+const LABELS_FILE_PATH = 'rollout_labels.json';
+let fileLabels = {}; // loaded from rollout_labels.json
+
+function loadLabels() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LABELS_KEY)) || {};
+    return Object.assign({}, fileLabels, stored);
+  } catch(e) {
+    return Object.assign({}, fileLabels);
+  }
+}
+function saveLabels(labels) {
+  localStorage.setItem(LABELS_KEY, JSON.stringify(labels));
+}
+function getLabelKey(task, embodiment, ep) {
+  return task + '_' + embodiment + '_ep' + ep;
+}
+function getLabel(task, embodiment, ep) {
+  return loadLabels()[getLabelKey(task, embodiment, ep)] || null;
+}
+function setLabel(task, embodiment, ep, value) {
+  const labels = loadLabels();
+  if (value === null) {
+    delete labels[getLabelKey(task, embodiment, ep)];
+  } else {
+    labels[getLabelKey(task, embodiment, ep)] = value;
+  }
+  saveLabels(labels);
+}
+function computeSuccessRate(task, embodiment) {
+  const data = rolloutData[task];
+  if (!data) return null;
+  let successes = 0, labelled = 0;
+  for (let i = 0; i < data.numEps; i++) {
+    const l = getLabel(task, embodiment, i);
+    if (l === 'success') { successes++; labelled++; }
+    else if (l === 'fail') { labelled++; }
+  }
+  if (labelled === 0) return data[embodiment === 'cotrain' ? 'cotrainRate' : 'robotRate'];
+  return Math.round(100 * successes / data.numEps) + '%';
+}
+
+// ---- Rollout comparison data ----
+// Source: /mnt/m2a_cpu/teleop_data/rli14/
+// Cotrain = "Egomimic 532 vid, full tokens, camera actions, triangulated"
+// Robot   = "Robot Only, CLS token, Camera Action Results"
+const rolloutData = {
+  stack: {
+    id: 'stack_env3', label: 'StackBowls / env3',
+    cotrainFolder: '12192025_eval_stack_cotrain_env3_2025.12.23-13.49.23_15k',
+    robotFolder:   '12192025_eval_stack_robotonly_env3_2025.12.19-18.23.20_65k',
+    numEps: 15, cotrainRate: '80%', robotRate: '47%',
+  },
+  pick: {
+    id: 'pick_env2', label: 'Pick / env2',
+    cotrainFolder: '12192025_eval_pick_egomimic_env2_2025.12.19-02.36.59_15k',
+    robotFolder:   '12192025_eval_pick_cotrain_env2_2025.12.21-21.56.46_55k',
+    numEps: 15, cotrainRate: '', robotRate: '',
+  },
+  pull: {
+    id: 'pull_env3', label: 'Pull / env3',
+    cotrainFolder: '12192025_eval_pull_cotrain_env3_2025.12.19-02.36.42_25k',
+    robotFolder:   '12192025_eval_pull_robotonly_env3_2025.12.19-18.19.21_40k',
+    numEps: 15, cotrainRate: '87%', robotRate: '27%',
+  },
+  reorient: {
+    id: 'reorient_env2', label: 'Reorient / env2',
+    cotrainFolder: '11132025_eval_reorient_egomimic_env2_2025.12.05-07.17.37_30k',
+    robotFolder:   '12192025_eval_reorient_cotrain_env2_2025.12.21-09.17.45_60k',
+    numEps: 15, cotrainRate: '', robotRate: '',
+  },
+  book: {
+    id: 'book_env3', label: 'Book / env3',
+    cotrainFolder: '12192025_eval_book_egomimic_env3_2025.12.19-02.35.42_30k',
+    robotFolder:   '12192025_eval_book_robotonly_env3_2025.12.19-18.12.12_85k',
+    numEps: 15, cotrainRate: '47%', robotRate: '20%',
+  },
+  pour: {
+    id: 'pour_env1', label: 'Pour / env1',
+    cotrainFolder: '12192025_eval_pour_egomimic_env1_2025.12.19-02.35.56_65k',
+    robotFolder:   '12192025_eval_pour_egomimic_env1_2025.12.19-18.18.49_85k',
+    numEps: 15, cotrainRate: '53%', robotRate: '13%',
+  },
+};
+
+let currentTask = 'stack';
+let currentEp = 0;
+
+function renderCurrentEp() {
+  const container = document.getElementById('rollout-display');
+  container.innerHTML = '';
+
+  const data = rolloutData[currentTask];
+  if (!data) return;
+
+  const cotrainRate = computeSuccessRate(currentTask, 'cotrain');
+  const robotRate = computeSuccessRate(currentTask, 'robot');
+  const header = document.getElementById('comparison-header');
+  header.innerHTML = '<div class="col-label cotrain">Human Cotraining (Ours)<br><span style="font-size:0.85em;font-weight:400;">' + cotrainRate + ' success</span></div>'
+    + '<div class="col-label robot">Robot Only<br><span style="font-size:0.85em;font-weight:400;">' + robotRate + ' success</span></div>';
+
+  const block = document.createElement('div');
+  block.className = 'comparison-env';
+
+  if (isLabeller) {
+    const label = document.createElement('div');
+    label.className = 'env-label';
+    label.textContent = data.label;
+    block.appendChild(label);
+
+    const debug = document.createElement('div');
+    debug.className = 'debug-path';
+    debug.innerHTML = '<b>cotrain:</b> /mnt/m2a_cpu/teleop_data/rli14/' + data.cotrainFolder
+      + '<br><b>robot:</b> /mnt/m2a_cpu/teleop_data/rli14/' + data.robotFolder;
+    block.appendChild(debug);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'comparison-row';
+
+  ['cotrain', 'robot'].forEach(embodiment => {
+    const cell = document.createElement('div');
+    cell.className = 'comparison-cell';
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.src = 'https://people.csail.mit.edu/rli14/what-matters-cotraining-human-videos/media/videos/rollouts/' + data.id + '_' + embodiment + '_ep' + currentEp + '.mp4';
+    cell.appendChild(video);
+
+    const curLabel = getLabel(currentTask, embodiment, currentEp);
+    if (curLabel || isLabeller) {
+      const indicator = document.createElement('div');
+      indicator.className = 'label-indicator ' + (curLabel || 'unlabelled');
+      indicator.textContent = curLabel ? curLabel.toUpperCase() : 'UNLABELLED';
+      cell.appendChild(indicator);
+    }
+
+    if (isLabeller) {
+      const btns = document.createElement('div');
+      btns.className = 'label-btns';
+      [['success', 'Success'], ['fail', 'Fail'], ['unlabel', 'Clear']].forEach(([val, text]) => {
+        const b = document.createElement('button');
+        b.className = 'label-btn ' + val + (curLabel === val && val !== 'unlabel' ? ' active' : '');
+        b.textContent = text;
+        b.onclick = function() {
+          setLabel(currentTask, embodiment, currentEp, val === 'unlabel' ? null : val);
+          renderCurrentEp();
+          renderEpButtons();
+        };
+        btns.appendChild(b);
+      });
+      cell.appendChild(btns);
+    }
+
+    row.appendChild(cell);
+  });
+
+  block.appendChild(row);
+
+  const FPS = 30;
+  let playing = false;
+  let animId = null;
+
+  const controls = document.createElement('div');
+  controls.className = 'playback-controls';
+
+  const playBtn = document.createElement('button');
+  playBtn.className = 'play-btn';
+  playBtn.textContent = '\u25B6';
+  controls.appendChild(playBtn);
+
+  const scrubber = document.createElement('input');
+  scrubber.type = 'range';
+  scrubber.min = '0';
+  scrubber.max = '0';
+  scrubber.value = '0';
+  scrubber.step = '1';
+  scrubber.className = 'time-scrubber';
+  controls.appendChild(scrubber);
+
+  block.appendChild(controls);
+
+  function seekToFrame(frame) {
+    const t = frame / FPS;
+    row.querySelectorAll('video').forEach(v => { v.currentTime = t; });
+    scrubber.value = frame;
+  }
+
+  scrubber.addEventListener('input', function() {
+    if (playing) stopPlayback();
+    seekToFrame(parseInt(scrubber.value));
+  });
+
+  function stopPlayback() {
+    playing = false;
+    playBtn.textContent = '\u25B6';
+    row.querySelectorAll('video').forEach(v => v.pause());
+    if (animId) { cancelAnimationFrame(animId); animId = null; }
+  }
+
+  let maxFrames = 0;
+
+  function updateScrubberMax() {
+    const frameCounts = Array.from(row.querySelectorAll('video')).map(v => {
+      if (!v.duration || !Number.isFinite(v.duration)) return 0;
+      return Math.floor(v.duration * FPS);
+    });
+    const newMax = Math.max(0, ...frameCounts);
+    if (newMax > 0) {
+      maxFrames = newMax;
+      scrubber.max = String(maxFrames);
+      if (parseInt(scrubber.value, 10) > maxFrames) {
+        scrubber.value = String(maxFrames);
+      }
+    }
+  }
+
+  function startPlayback() {
+    playing = true;
+    playBtn.textContent = '\u23F8';
+    const videos = row.querySelectorAll('video');
+    videos.forEach(v => v.play());
+    function tick() {
+      if (!playing) return;
+      const maxCurrentFrame = Math.max(
+        ...Array.from(videos).map(v => v.duration ? Math.round(v.currentTime * FPS) : 0)
+      );
+      const frame = Math.min(maxCurrentFrame, maxFrames);
+      if (Number.isFinite(frame)) {
+        scrubber.value = String(frame);
+        if (frame >= maxFrames) {
+          stopPlayback();
+          scrubber.value = String(maxFrames);
+          return;
+        }
+      }
+      animId = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  playBtn.addEventListener('click', function() {
+    if (playing) {
+      stopPlayback();
+    } else {
+      if (parseInt(scrubber.value) >= parseInt(scrubber.max)) {
+        seekToFrame(0);
+      }
+      startPlayback();
+    }
+  });
+
+  const videos = row.querySelectorAll('video');
+  videos.forEach((video) => {
+    video.addEventListener('loadedmetadata', function() {
+      updateScrubberMax();
+    });
+  });
+
+  container.appendChild(block);
+}
+
+function renderEpButtons() {
+  const data = rolloutData[currentTask];
+  if (!data) return;
+  const selector = document.getElementById('ep-selector');
+  selector.innerHTML = '';
+  for (let i = 0; i < data.numEps; i++) {
+    const btn = document.createElement('button');
+    let cls = 'ep-btn' + (i === currentEp ? ' active' : '');
+    const lc = getLabel(currentTask, 'cotrain', i);
+    const lr = getLabel(currentTask, 'robot', i);
+    if (lc === 'success' && lr === 'success') cls += ' labelled-success';
+    else if (lc === 'fail' && lr === 'fail') cls += ' labelled-fail';
+    else if (lc || lr) {
+      if ((lc === 'success' || lr === 'success') && !(lc === 'fail' || lr === 'fail')) cls += ' labelled-success';
+      else if ((lc === 'fail' || lr === 'fail') && !(lc === 'success' || lr === 'success')) cls += ' labelled-fail';
+    }
+    btn.className = cls;
+    btn.textContent = i + 1;
+    btn.onclick = function() { selectEp(i); };
+    selector.appendChild(btn);
+  }
+}
+
+function selectEp(ep) {
+  currentEp = ep;
+  renderCurrentEp();
+  document.querySelectorAll('#ep-selector .ep-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === ep);
+  });
+}
+
+function showTask(task, el) {
+  currentTask = task;
+  currentEp = 0;
+  document.querySelectorAll('#rollout-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) {
+    el.classList.add('active');
+  } else {
+    document.querySelectorAll('#rollout-tabs .tab-btn').forEach(b => {
+      if (b.textContent.toLowerCase() === task) b.classList.add('active');
+    });
+  }
+  renderEpButtons();
+  renderCurrentEp();
+}
+
+// ---- Labeller I/O ----
+function getSerializedLabels() {
+  return JSON.stringify(loadLabels(), null, 2);
+}
+
+function downloadLabels() {
+  if (!isLabeller) return;
+  const labelsJson = getSerializedLabels();
+  const blob = new Blob([labelsJson], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = LABELS_FILE_PATH;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function uploadLabels(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+        throw new Error('invalid-labels-format');
+      }
+      fileLabels = imported;
+      saveLabels(imported);
+      renderEpButtons();
+      renderCurrentEp();
+    } catch(err) { alert('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ---- Environment section ----
+let currentEnvTask = 'pick';
+function showEnv(task, el) {
+  currentEnvTask = task;
+  document.querySelectorAll('#env-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderEnvGrids(task);
+}
+
+function renderEnvGrids(task) {
+  // Train grid (all 10)
+  const g1 = document.getElementById('train-grid');
+  g1.innerHTML = '';
+  const allTrain = [...(trainImages1[task] || []), ...(trainImages2[task] || [])];
+  allTrain.forEach(src => {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = 'Training environment';
+    g1.appendChild(img);
+  });
+
+  // Test grid
+  const g3 = document.getElementById('test-grid');
+  g3.innerHTML = '';
+  (testImages[task] || []).forEach(item => {
+    const img = document.createElement('img');
+    img.src = item.src;
+    img.alt = item.label;
+    g3.appendChild(img);
+  });
+}
+
+// ---- BibTeX copy ----
+function copyBibtex() {
+  const text = document.getElementById('bibtex-content').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  if (isLabeller) {
+    const rolloutSection = document.getElementById('rollout-tabs').parentElement;
+    const banner = document.createElement('div');
+    banner.className = 'labeller-bar';
+    banner.textContent = 'LABELLER MODE — Label each rollout as Success or Fail';
+    rolloutSection.insertBefore(banner, rolloutSection.firstChild.nextSibling.nextSibling);
+    document.getElementById('labeller-io-container').style.display = 'block';
+  }
+
+  fetch(LABELS_FILE_PATH)
+    .then(r => r.ok ? r.json() : {})
+    .catch(() => ({}))
+    .then(data => {
+      fileLabels = data;
+      showTask('stack', document.querySelector('#rollout-tabs .tab-btn.active'));
+      showEnv('pick', document.querySelector('#env-tabs .tab-btn'));
+    });
+});
+</script>
+
 </body>
 </html>
