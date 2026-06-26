@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>What Matters When Cotraining Robot Manipulation Policies on Everyday Human Videos?</title>
 
+  <!-- analytics removed for anonymous version -->
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
@@ -683,9 +685,48 @@
 
 <div class="section-divider"></div>
 
+<!-- ============ ABSTRACT ============ -->
+<section class="content-section">
+  <h2 class="section-heading">Abstract</h2>
+  <p class="abstract-text">
+    Human video datasets used for cotraining robot manipulation policies largely consist of curated demonstrations where motions are orchestrated to resemble robot behavior and 3D hand poses are captured with specialized hardware. A more plentiful source of data is everyday Internet video, but it is an open question what factors enable transfer from such videos to robots. We investigate this using a new dataset of 532 human videos with 28 hours of high-quality triangulated hand labels and natural motions. We find that hand pose quality affects transfer, but even with accurate hands, the inherent motion gap hinders transfer unless the vision and policy networks specialize to each embodiment. Our cotraining recipe yields consistent improvements, with an absolute success rate gain of 29.7% in the low-robot-data regime across six manipulation tasks.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="stat-number">532</div>
+      <div class="stat-label">Human Videos</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">28h+</div>
+      <div class="stat-label">Hand Label Data</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">+29.7%</div>
+      <div class="stat-label">Success Rate Gain</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">6</div>
+      <div class="stat-label">Manipulation Tasks</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============ SYSTEM DIAGRAM ============ -->
+<section>
+  <div class="content-section">
+    <h2 class="section-heading">System Diagram</h2>
+    <img src="media/images/teaser3_website.png" alt="System diagram: Large-scale human data, action alignment, and policy cotraining for robot manipulation" style="width:100%; border-radius:10px;">
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
 <!-- ============ TRIHANDS ============ -->
 <section class="alt-bg">
-  <div class="content-section" style="max-width: 1200px;">
+  <div class="content-section" style="max-width: 900px;">
     <h2 class="section-heading">TriHands Visualization</h2>
     <p style="color: var(--text-secondary); margin-bottom: 0.6rem;">
       We build <strong>TriHands</strong>, a dataset of everyday cooking videos with accurate 3D hands produced by a multi-view triangulation pipeline.
@@ -928,7 +969,56 @@
       var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
   }
-  Object.keys(trihandsClips).forEach(function(k) { shuffleArray(trihandsClips[k]); });
+  // Labeller is a local-only tool: never activate it on the public site
+  const thIsLocal = ['', 'localhost', '127.0.0.1'].includes(window.location.hostname);
+  const thIsLabeller = thIsLocal && new URLSearchParams(window.location.search).get('mode') === 'labeller';
+  // Labeller mode needs a stable order so clips can be stepped through one by one
+  if (!thIsLabeller) {
+    Object.keys(trihandsClips).forEach(function(k) { shuffleArray(trihandsClips[k]); });
+  }
+
+  // ---- Exo crop store ----
+  // Pan/zoom saved per clip+cam in labeller mode; consumed by
+  // scripts/make_trihands_collages.py to render collage videos.
+  const CROPS_KEY = 'trihands-crops';
+  const CROPS_FILE = 'trihands_crops.json';
+  let fileCrops = {};
+  function loadCrops() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(CROPS_KEY)) || {};
+      return Object.assign({}, fileCrops, stored);
+    } catch (e) { return Object.assign({}, fileCrops); }
+  }
+  function saveCrops(crops) { localStorage.setItem(CROPS_KEY, JSON.stringify(crops)); }
+  function clipKey(clip) { return clip.base.split('/').slice(-2).join('/'); }
+  function getClipCrops(clip) { return loadCrops()[clipKey(clip)] || {}; }
+  function setCamCrop(clip, cam, state) {
+    const crops = loadCrops();
+    const key = clipKey(clip);
+    crops[key] = crops[key] || {};
+    crops[key][cam] = state;
+    saveCrops(crops);
+  }
+  function deleteClipCrops(clip) {
+    const crops = loadCrops();
+    delete crops[clipKey(clip)];
+    saveCrops(crops);
+  }
+
+  // Visible source-image rect (normalized 0-1) for a given pan/zoom state in a
+  // square cell. Mirrors the object-fit:cover + object-position + margin-top
+  // rendering below; the collage script recomputes the same rect from zoom/opX/mtY.
+  function cropRect(zoom, opX, mtY, natW, natH) {
+    if (!natW || !natH) return null;
+    const he = zoom / 100;
+    const scale = Math.max(1 / natW, he / natH);
+    const offX = (1 - natW * scale) * opX / 100;
+    const offY = (he - natH * scale) / 2;
+    const x0 = -offX / scale;
+    const y0 = (-mtY / 100 - offY) / scale;
+    const side = 1 / scale;
+    return { x: x0 / natW, y: y0 / natH, w: side / natW, h: side / natH };
+  }
 
   let currentMode = 'both';
   let currentClipIdx = 0;
@@ -1002,8 +1092,9 @@
         // Vertical: margin-top pans the oversized element within cell.
         // Zoom: adjusts height% (142.86% = default 15% crop, 100% = no crop, higher = more zoom).
         (function(cell, img) {
-          let zoom = 142.86;   // height percentage: 100=fit, 142.86=default crop, higher=more zoom
-          let opX = 50;        // object-position X: 0=left, 100=right
+          const savedCrop = getClipCrops(clip)[cam];
+          let zoom = savedCrop ? savedCrop.zoom : 142.86;   // height percentage: 100=fit, 142.86=default crop, higher=more zoom
+          let opX = savedCrop ? savedCrop.opX : 50;         // object-position X: 0=left, 100=right
           let mtY;             // margin-top %: computed from zoom
           let dragging = false;
           let startX, startY, startOpX, startMtY;
@@ -1015,8 +1106,19 @@
             return { min: -overflow, max: 0, center: -overflow / 2 };
           }
 
-          // Initialize mtY to center
-          mtY = mtRange().center;
+          // Initialize mtY to center (or saved value)
+          mtY = savedCrop && typeof savedCrop.mtY === 'number' ? savedCrop.mtY : mtRange().center;
+
+          // Persist this cell's pan/zoom (labeller mode only). Stores the raw
+          // state plus the resulting normalized source-image rect.
+          function persistCrop() {
+            if (!thIsLabeller) return;
+            setCamCrop(clip, cam, {
+              zoom: zoom, opX: opX, mtY: mtY,
+              rect: cropRect(zoom, opX, mtY, img.naturalWidth, img.naturalHeight)
+            });
+            if (window.thUpdateLabellerStatus) window.thUpdateLabellerStatus();
+          }
 
           function applyPan() {
             img.style.height = zoom + '%';
@@ -1053,8 +1155,12 @@
             applyPan();
           });
 
-          cell.addEventListener('pointerup', function() { dragging = false; });
-          cell.addEventListener('pointercancel', function() { dragging = false; });
+          cell.addEventListener('pointerup', function() {
+            if (dragging) { dragging = false; persistCrop(); }
+          });
+          cell.addEventListener('pointercancel', function() {
+            if (dragging) { dragging = false; persistCrop(); }
+          });
 
           // Scroll-to-zoom: zoom toward cursor position
           cell.addEventListener('wheel', function(e) {
@@ -1088,12 +1194,17 @@
             }
             clampMtY();
             applyPan();
+            persistCrop();
           }, { passive: false });
 
           cell.addEventListener('dblclick', function() {
             zoom = 142.86; opX = 50; mtY = mtRange().center;
             applyPan();
+            persistCrop();
           });
+
+          // Apply initial state (saved crop or defaults)
+          applyPan();
         })(cell, img);
       }
       exoGrid.appendChild(cell);
@@ -1124,6 +1235,86 @@
     controls.appendChild(counter);
 
     el.appendChild(controls);
+
+    // Labeller toolbar: step through clips, track saved crops, export JSON
+    if (thIsLabeller) {
+      const bar = document.createElement('div');
+      bar.className = 'labeller-bar';
+      bar.style.margin = '0';
+      bar.style.borderRadius = '0';
+      bar.style.flexWrap = 'wrap';
+      bar.style.alignItems = 'center';
+
+      const clips = trihandsClips[currentMode];
+      const info = document.createElement('span');
+      info.textContent = clipKey(clip) + ' (' + (currentClipIdx + 1) + '/' + clips.length + ')';
+      bar.appendChild(info);
+
+      const status = document.createElement('span');
+      status.style.fontWeight = '400';
+      window.thUpdateLabellerStatus = function() {
+        const saved = Object.keys(getClipCrops(clip)).sort();
+        status.textContent = saved.length
+          ? 'saved: ' + saved.join(', ')
+          : 'no crops saved (defaults)';
+      };
+      window.thUpdateLabellerStatus();
+      bar.appendChild(status);
+
+      function mkBtn(text, onClick) {
+        const b = document.createElement('button');
+        b.className = 'tab-btn';
+        b.textContent = text;
+        b.addEventListener('click', onClick);
+        bar.appendChild(b);
+        return b;
+      }
+      mkBtn('← Prev', function() {
+        currentClipIdx = (currentClipIdx - 1 + clips.length) % clips.length;
+        renderCurrentClip();
+      });
+      mkBtn('Next →', function() {
+        currentClipIdx = (currentClipIdx + 1) % clips.length;
+        renderCurrentClip();
+      });
+      mkBtn('Reset clip', function() {
+        deleteClipCrops(clip);
+        renderCurrentClip();
+      });
+      mkBtn('Download JSON', function() {
+        const blob = new Blob([JSON.stringify(loadCrops(), null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = CROPS_FILE;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      const uploadInput = document.createElement('input');
+      uploadInput.type = 'file';
+      uploadInput.accept = '.json';
+      uploadInput.style.display = 'none';
+      uploadInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+              throw new Error('invalid-crops-format');
+            }
+            saveCrops(Object.assign(loadCrops(), imported));
+            renderCurrentClip();
+          } catch (err) { alert('Invalid JSON file'); }
+        };
+        reader.readAsText(file);
+      });
+      bar.appendChild(uploadInput);
+      mkBtn('Upload JSON', function() { uploadInput.click(); });
+
+      el.appendChild(bar);
+    }
+
     display.appendChild(el);
 
     // map imgs array: [egoImg, exo0Img, exo1Img, ...]
@@ -1249,8 +1440,11 @@
     loadBatch();
   }
 
-  // init
-  renderCurrentClip();
+  // init: load committed crops (if present) so saved zoom/pans apply, then render
+  fetch(CROPS_FILE)
+    .then(r => r.ok ? r.json() : {})
+    .catch(() => ({}))
+    .then(data => { fileCrops = data || {}; renderCurrentClip(); });
   // start background preload after first paint
   setTimeout(preloadAllGallery, 500);
 })();
@@ -1260,7 +1454,7 @@
 
 <!-- ============ AUTONOMOUS ROLLOUTS ============ -->
 <section>
-  <div class="content-section" style="max-width: 640px;">
+  <div class="content-section" style="max-width: 560px;">
     <h2 class="section-heading">Autonomous Rollouts</h2>
     <p style="color: var(--text-secondary); margin-bottom: 1rem;">
       Side-by-side comparison of zero-shot policy rollouts on unseen test environments.
@@ -1295,45 +1489,6 @@
         <button onclick="document.getElementById('label-upload').click()">Load Labels JSON</button>
         <input type="file" id="label-upload" accept=".json" style="display:none" onchange="uploadLabels(event)">
       </div>
-    </div>
-  </div>
-</section>
-
-<div class="section-divider"></div>
-
-<!-- ============ SYSTEM DIAGRAM ============ -->
-<section>
-  <div class="content-section">
-    <h2 class="section-heading">System Diagram</h2>
-    <img src="media/images/teaser3_website.png" alt="System diagram: Large-scale human data, action alignment, and policy cotraining for robot manipulation" style="width:100%; border-radius:10px;">
-  </div>
-</section>
-
-<div class="section-divider"></div>
-
-<!-- ============ ABSTRACT ============ -->
-<section class="content-section">
-  <h2 class="section-heading">Abstract</h2>
-  <p class="abstract-text">
-    Existing human video datasets used for cotraining robot manipulation policies largely consist of curated demonstrations collected by roboticists. The human motions in these videos are carefully orchestrated to look like robot motions and the 3D hand poses acquired are highly accurate due to usage of specialized capture devices. A more plentiful and diverse source of data is everyday videos on the Internet of humans accomplishing daily tasks. To study cotraining in this setting, we curate a large-scale dataset of 532 videos of natural human activity (cooking) with over 28 hours of high-quality hand labels. We find that hand quality affects transfer performance, but even with high-quality hands, the inherent motion gap can hinder transfer if the policy network cannot properly specialize to each embodiment. We propose a cotraining recipe based on a token-level fusion architecture, embodiment-specific action encoders and decoders, and a loss that upweights robot data. Our recipe allows for consistently improved scaling when cotraining on human data, with a mean success rate improvement of +29.7% in the low-robot-data regime across six manipulation tasks.
-  </p>
-
-  <div class="stat-row">
-    <div class="stat-box">
-      <div class="stat-number">532</div>
-      <div class="stat-label">Human Videos</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">28h+</div>
-      <div class="stat-label">Hand Label Data</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">+29.7%</div>
-      <div class="stat-label">Success Rate Gain</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">6</div>
-      <div class="stat-label">Manipulation Tasks</div>
     </div>
   </div>
 </section>
@@ -1535,7 +1690,9 @@ const trainImages2 = {
 
 // ---- Labeller mode ----
 const urlParams = new URLSearchParams(window.location.search);
-const isLabellerMode = urlParams.get('mode') === 'labeller';
+// Labeller is a local-only tool: never activate it on the public site
+const isLocalHost = ['', 'localhost', '127.0.0.1'].includes(window.location.hostname);
+const isLabellerMode = isLocalHost && urlParams.get('mode') === 'labeller';
 const isLabeller = isLabellerMode;
 const LABELS_KEY = 'rollout-labels';
 const LABELS_FILE_PATH = 'rollout_labels.json';
